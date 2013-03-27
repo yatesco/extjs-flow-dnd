@@ -48,7 +48,11 @@
 
                 for (i = 0; i < 9; i++) {
                     items.push({
-                        title: Ext.String.format('Panel {0}', i + 1), width: 60, height: 60, cls: 'my-item-panel'
+                        title: Ext.String.format('Panel {0}', i + 1)
+                        ,width: 60
+                        ,height: 60
+                        // x-header-draggable enables cursor:move for the header
+                        ,cls: 'my-item-panel x-header-draggable'
 //                        ,draggable:{
 //                            // moveOnDrag - when dropping does the panel stay where it is dropped?
 //                            moveOnDrag:false
