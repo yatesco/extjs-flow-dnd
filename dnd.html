@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Drag and drop</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <link rel="stylesheet" href="lib/extjs-4.2.0/resources/css/ext-all.css" type="text/css">
+    <script type="text/javascript" src="lib/extjs-4.2.0/ext-all-debug-w-comments.js"></script>
+    <style type="text/css">
+        .my-item-panel {
+            float: left;
+            margin: 10px;
+        }
+
+        .my-item-panel .x-panel-body {
+            font-size: 40px;
+            text-align: center;
+            line-height: 160px;
+        }
+
+        .x-panel-dd-spacer {
+            float: left;
+            border: 1px dashed gray;
+            margin: 10px;
+        }
+
+        .dropOK {
+            border: 3px solid green !important;
+        }
+    </style>
+    <script type="text/javascript">
+
+        var replaceItems =  function(container, source, target) {
+            var items = container.items.items;
+            // remove the source and then insert the source before the target
+            items.splice(items.indexOf(source), 1);
+            var indexOfTarget = items.indexOf(target);
+            var insertBefore = source.getBox().x < target.getBox().x;
+            items.splice(insertBefore ? indexOfTarget : indexOfTarget + 1, 0, source);
+            container.doLayout();
+        };
+
+        Ext.define('My.Container', {
+            extend: 'Ext.panel.Panel', width: 300, height: 300, title: 'Container', initComponent: function () {
+                var me = this
+                        , i
+                        , items = []
+                        ;
+
+                for (i = 0; i < 9; i++) {
+                    items.push({
+                        title: Ext.String.format('Panel {0}', i + 1), width: 60, height: 60, cls: 'my-item-panel'
+//                        ,draggable:{
+//                            // moveOnDrag - when dropping does the panel stay where it is dropped?
+//                            moveOnDrag:false
+//                            ,listeners: {
+//                                dragstart: function(thi, e, eOpts) {
+//                                    console.log('started drag')
+//                                }
+//                                ,dragend: function(thi, e, eOpts) {
+//                                    console.log('finished drag')
+//                                }
+//                            }
+//                        }
+                        , html: i + 1, listeners: {
+                            render: function (thi, eOpts) {
+                                var ddGroupName = 'chartsDDGroup';
+                                // make this draggable
+                                var overrides = {
+                                    // Called the instance the element is dragged.
+                                    b4StartDrag: function () {
+                                        // Cache the drag element
+                                        if (!this.el) {
+                                            this.el = Ext.get(this.getEl());
+                                        }
+
+                                        //Cache the original XY Coordinates of the element, we'll use this later.
+                                        this.originalXY = this.el.getXY();
+                                        // store the original width and height so we can repair  the damage done
+                                        // by removing the border from the dropOK class
+                                        this.originalWidth = this.el.getWidth();
+                                        this.originalHeight = this.el.getHeight();
+                                    },
+                                    // Called when element is dropped not anything other than a dropzone with the same ddgroup
+                                    onInvalidDrop: function () {
+                                        // Set a flag to invoke the animated repair
+                                        this.invalidDrop = true;
+                                    },
+                                    // Called when the drag operation completes
+                                    endDrag: function () {
+                                        // Invoke the animation if the invalidDrop flag is set to true
+                                        if (this.invalidDrop) {
+                                            // Remove the drop invitation
+                                            this.el.removeCls('dropOK');
+                                            // Repair
+                                            this.el.setXY(this.originalXY, true);
+                                            delete this.invalidDrop;
+                                        }
+                                    },
+
+                                    // without this override you cannot drag the elements above or left because it starts at 0,0
+                                    // http://www.sencha.com/forum/showthread.php?134244-Drag-and-Drop-does-not-allow-you-to-move-the-item-up-or-left
+                                    alignElWithMouse: function(el, iPageX, iPageY) {
+                                        var oCoord = this.getTargetCoord(iPageX, iPageY),
+                                                fly = el.dom ? el : Ext.fly(el, '_dd'),
+                                                EL = Ext.core.Element,
+                                                vpSize = this.cachedViewportSize = { width: EL.getDocumentWidth(), height: EL.getDocumentHeight() },
+                                                aCoord = [
+                                                    Math.max(0, Math.min(oCoord.x, vpSize.width)),
+                                                    Math.max(0, Math.min(oCoord.y, vpSize.height))
+                                                ];
+
+                                        fly.setXY(aCoord);
+                                        this.cachePosition(oCoord.x, oCoord.y);
+                                        this.autoScroll(oCoord.x, oCoord.y, el.offsetHeight, el.offsetWidth);
+                                        return oCoord;
+                                    },
+
+                                    // Only called when the drag element is dragged over the a drop target with the same ddgroup
+                                    onDragEnter : function(evtObj, targetElId) {
+                                        // Colorize the drag target if the drag node's parent is not the same as the drop target
+                                        if (targetElId != this.el.dom.parentNode.id) {
+                                            this.el.addCls('dropOK');
+                                        }
+                                        else {
+                                            // Remove the invitation
+                                            this.onDragOut();
+                                        }
+                                    },
+                                    // Only called when element is dragged out of a dropzone with the same ddgroup
+                                    onDragOut : function(evtObj, targetElId) {
+                                        this.el.removeCls('dropOK');
+                                    },
+
+                                    // Called upon successful drop of an element on a DDTarget with the same
+                                    onDragDrop : function(evtObj, targetElId) {
+                                        // Wrap the drop target element with Ext.Element
+                                        var dropEl = Ext.get(targetElId);
+
+                                        // Perform the node move only if the drag element's
+                                        // parent is not the same as the drop target
+                                        if (this.el.dom.parentNode.id != targetElId) {
+
+                                            // Move the element
+                                            var target = Ext.getCmp(dropEl.id);
+                                            var container = target.up('panel');
+                                            var source = Ext.getCmp(this.el.id);
+
+                                            replaceItems(container, source, target);
+
+                                            // Remove the drag invitation
+                                            this.onDragOut(evtObj, targetElId);
+
+                                            // Clear the styles
+                                            this.el.dom.style.position ='';
+                                            this.el.dom.style.top = '';
+                                            this.el.dom.style.left = '';
+
+                                            // repair the damage done by removing the border from the dropOK class
+                                            source.setWidth(this.originalWidth);
+                                            source.setHeight(this.originalHeight);
+                                        }
+                                        else {
+                                            // This was an invalid drop, initiate a repair
+                                            this.onInvalidDrop();
+                                        }
+                                    }
+                                };
+                                var dd = Ext.create('Ext.dd.DD', thi.el.id, ddGroupName, {
+                                    isTarget: false
+                                });
+                                Ext.apply(dd, overrides);
+
+                                Ext.create('Ext.dd.DDTarget',thi.el.id, ddGroupName, {
+                                    onDragEnter: function(evtObj, targetElId) {
+                                        console.log('entered')
+                                    }
+                                });
+                            }
+                        }
+                    });
+                }
+                Ext.apply(me, {items: items});
+                me.callParent(arguments);
+            }
+        });
+
+        // entry point
+        Ext.onReady(function () {
+            Ext.create('My.Container', {
+                renderTo: Ext.getBody()
+            })
+        }); // eo onReady
+
+    </script>
+</head>
+<body>
+</body>
+</html>
